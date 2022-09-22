@@ -1,6 +1,12 @@
+/*******************************************
+ * Name: myDES.cpp
+ * Author: kongtaoxing
+ * Powered by Beijingjiaotong University
+ ******************************************/
 #include<iostream>
 #include<string>
 #include<fstream>
+#include<vector>
 using namespace std;
 
 // IP置换表
@@ -87,7 +93,7 @@ int S[8][4][16] = {
     }
 };  
 
-//扩充置换表E
+//扩充置换表E，用于把R从32位扩展到48位
 int E[48] = {
              31,  0,  1,  2,  3,  4,   
 			 3,   4,  5,  6,  7,  8,   
@@ -107,7 +113,7 @@ int P[32] = {
 			 18, 12, 29,  5, 21, 10,  3, 24
             };
 
-//置换选择PC1
+//置换选择PC1，用以置换密钥
 int PC1[56] = {
                 56, 48, 40, 32, 24, 16,  8,   
                  0, 57, 49, 41, 33, 25, 17,   
@@ -119,7 +125,7 @@ int PC1[56] = {
                 20, 12,  4, 27, 19, 11,  3
               };
 
-//置换选择PC2
+//置换选择PC2，移位之后置换密钥
 int PC2[56] = {
                 13, 16, 10, 23, 0,  4,  2, 27,   
                 14,  5, 20,  9, 22, 18, 11,  3,   
@@ -129,32 +135,38 @@ int PC2[56] = {
                 33, 52, 45, 41, 49, 35, 28, 31
               };
 
-//左移次数
+//左移次数，用以移动密钥
 int MOVE[16] = {
         1, 1, 2, 2, 2, 2, 2, 2,
         1, 2, 2, 2, 2, 2, 2, 1
         };
 
-string encrypt(string p, string k);
-
-string encrypt(string p, string k){
-
-    return p;
-}
+string encrypt(string p, string k);  //加密函数主函数
+string LowToUpper(string low);  //小写字母转大写字母
+string HextoBin(string Hex);  //十六进制转二进制
+string BintoHex(string Bin);  //二进制转十六进制
+vector<string> subKey(string k);  //子秘钥生成函数
+string feistel(string R, string K);   //Feistel函数
 
 int main()
 {
     string PATH_P, PATH_C, PATH_K = "";
     string p, c, k;
-    cout << "请输入需要加密的文件路径：";
+    cout << "请输入需要加密的文件路径(路径中的单斜杠请输入为双斜杠，以下同)：";
     cin >> PATH_P;
     ifstream pFile(PATH_P, ios::in);
     ifstream kFile;
     if(!pFile.is_open()){
         cout << "\n打开明文文件失败！" << endl;
+        system("pause");
         return 0;
     }
-    getline(pFile, p);
+    getline(pFile, p);   //读入明文字符串
+    if(p.length() % 16 != 0) {
+        for(int i = 0; i < 16 - p.length() % 16; i++) {
+            p += "0";       //不够加密的话填0补位，方便加密
+        }
+    }
     cout << "\n请选择准备输入密钥还是选择密钥文件，输入0选择输入密钥， 输入1选择输入密钥文件：";
     int miyao;
     cin >> miyao;
@@ -166,15 +178,140 @@ int main()
         cout << "\n请输入密钥文件路径：";
         cin >> PATH_K;
         kFile.open(PATH_K, ios::in);
-        getline(kFile, k);
+        if(!kFile.is_open()) {
+            cout << "\n打开密钥文件失败！" << endl;
+            system("pause");
+            return 0;
+        }
+        getline(kFile, k);   //读入密钥字符串
         kFile.close();
+        if(k.length() != 16) {
+            cout << "\n请将密钥长度限制为16位！"  << endl;
+            system("pause");
+            return 0;
+        }
     }
     c = encrypt(p, k);
     ofstream cFile("c.txt",ios::out);
     cFile << c;
     pFile.close();
     cFile.close();
-    cout << "\n密文已保存至c.txt" << endl;
+    cout << "\n密文已保存至程序目录下的c.txt" << endl;
+    // vector<string> K = subKey(k);
+    // for(int i = 0; i < 16; i++) {
+    //     cout << K[i] << endl;
+    // }
     system("pause");
     return 0;
+}
+
+string encrypt(string p, string k){   //轮加密
+    string pBin = HextoBin(p);
+    vector<string> Key = subKey(k);
+    for(int i = 0; i < pBin.length() / 64; i++) {    //采用ECB方式
+        string P = pBin.substr(i * 64, 64);
+        string pIP(64, '0');   //经IP变换之后的字符串
+        for(int j = 0; j < 64; j++) {
+            pIP[j] = P[IP[j]];
+        }
+        vector<string> L(16, "00000000000000000000000000000000");
+        vector<string> R(16, "00000000000000000000000000000000");
+        L[0] = pIP.substr(0, 32);
+        R[0] = pIP.substr(32, 32);
+        for(int j = 1; j < 16; j++) {
+            L[i] = R[i - 1];
+            R[i] = L[i - 1] + feistel(R[i - 1], Key[i]);
+        }
+    }
+    return BintoHex(pBin);
+}
+
+string LowToUpper(string low) {
+    for(int i = 0; i < low.length(); i++) {
+        if(low[i] >= 'a' && low[i] <= 'z') {
+            low[i] -= 32;
+        }
+    }
+    return low;
+}
+
+string HextoBin(string Hex) {
+    string Bin = "";
+    for(int i = 0; i < Hex.length(); i++) {
+        if(Hex[i] == '0') Bin += "0000";
+        else if(Hex[i] == '1') Bin += "0001";
+        else if(Hex[i] == '2') Bin += "0010";
+        else if(Hex[i] == '3') Bin += "0011";
+        else if(Hex[i] == '4') Bin += "0100";
+        else if(Hex[i] == '5') Bin += "0101";
+        else if(Hex[i] == '6') Bin += "0110";
+        else if(Hex[i] == '7') Bin += "0111";
+        else if(Hex[i] == '8') Bin += "1000";
+        else if(Hex[i] == '9') Bin += "1001";
+        else if(Hex[i] == 'A') Bin += "1010";
+        else if(Hex[i] == 'B') Bin += "1011";
+        else if(Hex[i] == 'C') Bin += "1100";
+        else if(Hex[i] == 'D') Bin += "1101";
+        else if(Hex[i] == 'E') Bin += "1110";
+        else Bin += "1111";
+    }
+    return Bin;
+}
+
+string BintoHex(string Bin) {
+    string Hex = "";
+    for(int i = 0; i < Bin.length() / 4; i++) {
+        int num = (Bin[4 * i] - '0') * 8 + (Bin[4 * i + 1] - '0') * 4 + (Bin[4 * i + 2] - '0') * 2 + (Bin[4 * i + 3] - '0');
+        if(0 <= num && num <= 9) Hex += (num + '0');
+        else if(num == 10) Hex += "A";
+        else if(num == 11) Hex += "B";
+        else if(num == 12) Hex += "C";
+        else if(num == 13) Hex += "D";
+        else if(num == 14) Hex += "E";
+        else Hex += "F";
+    }
+    return Hex;
+}
+
+vector<string> subKey(string k) {
+    string kBin = HextoBin(k);
+    string kBin1(56, '0');
+    vector<string> C(16, "0000000000000000000000000000"); 
+	vector<string> D(16, "0000000000000000000000000000");
+	vector<string> K(16, "000000000000000000000000000000000000000000000000");
+	vector<string> K1(16, "000000000000000000000000000000000000000000000000");
+	for(int i = 0; i < 56; i++) {
+        kBin1[i] = kBin[PC1[i]];  //经过PC1置换丢弃8位
+    }
+    string C0 = kBin1.substr(0,28);
+    string D0 = kBin1.substr(28,28);
+    for(int i = 0; i < 27; i++) {
+        C[0][i] = C0[i + 1];
+        D[0][i] = D0[i + 1];
+    }
+    C[0][27] = C0[0]; D[0][27] = D0[0];
+    K[0] = C[0] + D[0];
+    for(int i = 1; i < 16; i++) {  //计算16轮密钥
+        string tempC = C[i - 1].substr(0, MOVE[i]);
+        string tempD = D[i - 1].substr(0, MOVE[i]);
+        for(int j = 0; j < 28 - MOVE[i]; j++) {
+            C[i][j] = C[i - 1][j + MOVE[i]];
+            D[i][j] = D[i - 1][j + MOVE[i]];
+        }
+        for(int j = 0; j < MOVE[i]; j++) {
+            C[i][28 - MOVE[i] + j] = tempC[j];
+            D[i][28 - MOVE[i] + j] = tempD[j];
+        }
+        K[i] = C[i] + D[i];
+    }
+	for(int i = 0; i< 16;i++){
+		for(int j = 0; j < 48; j++){  //经过PC2丢弃8位
+			K1[i][j] = K[i][PC2[j]];
+		}
+	}
+    return K1;
+}
+
+string feistel(string R, string K) {
+    string E(48, '0');  //扩展后的R
 }

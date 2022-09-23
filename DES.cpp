@@ -220,12 +220,12 @@ int main()
     return 0;
 }
 
-string encrypt(string p, string k){   //轮加密
+string encrypt(string p, string k){   //加密函数
     string pBin = HextoBin(p);
     vector<string> Key = subKey(k);
-    for(int i = 0; i < 16; i++) {
-        cout << "K[" << i << "]: " <<BintoHex(Key[i]) << endl;
-    }
+    // for(int i = 0; i < 16; i++) {
+    //     cout << "K[" << i << "]: " <<Key[i] << endl;
+    // }
     string ans = "";
     for(int i = 0; i < pBin.length() / 64; i++) {    //采用ECB方式
         string _P = pBin.substr(i * 64, 64);
@@ -237,18 +237,18 @@ string encrypt(string p, string k){   //轮加密
         vector<string> R(17, "00000000000000000000000000000000");
         L[0] = pIP.substr(0, 32);
         R[0] = pIP.substr(32, 32);
-        cout << "L[0]: " << BintoHex(L[0]) << " R[0]: " << BintoHex(R[0]) <<endl;
+        cout << "L[0]: " << L[0] << " R[0]: " << R[0] <<endl;
         for(int j = 1; j <= 16; j++) {
             L[j] = R[j - 1];
             string F = feistel(R[j - 1], Key[j - 1]);
-            // cout << F << endl;
+            cout << "F: " << F << endl;
             for(int k = 0; k < 32; k++){
                 R[j][k] = (L[j - 1][k] - '0') ^ (F[k] - '0') + '0';
             }
-            cout << "L[" << j << "]: " <<BintoHex(L[j]) << " R[" << j << "]: " << BintoHex(R[j]) << endl;
+            cout << "L[" << j << "]: " << L[j] << " R[" << j << "]: " << R[j] << endl;
         }
         string chaIPni = R[16] + L[16], enc(64, '0');
-        cout << chaIPni << endl;
+        // cout << chaIPni << endl;
         for(int j = 0; j < 64; j++) {   //IP逆置换
             enc[j] = chaIPni[IPni[j]];
         }
@@ -273,13 +273,13 @@ string decrypt(string c, string k) {  //解密函数
         L[0] = cIP.substr(0, 32);
         R[0] = cIP.substr(32, 32);
         for(int j = 1; j <= 16; j++) {
-            L[j] = R[j - 1];
-            string F = feistel(R[j - 1], Key[j - 1]);
+            R[j] = L[j - 1];
+            string F = feistel(L[j - 1], Key[j - 1]);
             for(int k = 0; k < 32; k++) {
-                R[j][k] = (L[j - 1][k] - '0') ^ (F[k] - '0') + '0';
+                L[j][k] = (R[j - 1][k] - '0') ^ (F[k] - '0') + '0';
             }
         }
-        string chaIP = R[16] + L[16], enc(64, '0');
+        string chaIP = L[16] + R[16], enc(64, '0');
         for(int j = 0; j < 64; j++) {
             enc[j] = chaIP[IP[j]];
         }
@@ -374,14 +374,17 @@ vector<string> subKey(string k) {
     return K1;
 }
 
-string feistel(string R, string K) {
+string feistel(string R, string K) {   //轮函数
     string _E(48, '0');  //扩展后的R
     string F(48, '0');
     string ret = "";
+    cout << "(E)K: " << K << endl;
     for(int i = 0; i < 48; i++) {
         _E[i] = R[E[i]];
         F[i] = (_E[i] - '0') ^ (K[i] - '0') + '0';
     }
+    cout << "E(R): " << _E << endl;
+    cout << "E(R) XOR K = " << F <<endl;
     for(int i = 0; i < 8; i++) {  // 经过S盒变换
         int x = (F[i * 6] - '0') * 2 + (F[i * 6 + 5] - '0');
         int y = (F[i * 6 + 1] -'0') * 8 + (F[i * 6 + 2] - '0') * 4 + (F[i * 6 + 3] - '0') * 2 + (F[i * 6 + 4] - '0');
@@ -393,10 +396,13 @@ string feistel(string R, string K) {
         else if(S[i][x][y] == 14) ret += "E";
         else ret +="F";
     }
+    cout << "Right After S-Box: " << ret << endl;
     string chaP = HextoBin(ret);   //还差P变换
+    cout << "Before P: " << chaP << endl;
     string ans(32, '0');
     for(int i = 0; i < 32; i++) {
         ans[i] = chaP[P[i]];
     }
+    cout << "f: " << ans << endl;
     return ans;
 }

@@ -143,12 +143,12 @@ int MOVE[16] = {
         };
 
 string encrypt(string p, string k);  //加密函数主函数
+string decrypt(string c, string k);   //解密函数
 string LowToUpper(string low);  //小写字母转大写字母
 string HextoBin(string Hex);  //十六进制转二进制
 string BintoHex(string Bin);  //二进制转十六进制
 vector<string> subKey(string k);  //子秘钥生成函数
-string feistel(string R, string K);   //Feistel函数
-string decrypt(string c, string k);   //解密函数
+string feistel(string R, string K);   //F函数, 不是feistel，起错名了.....
 
 int main()
 {
@@ -168,10 +168,15 @@ int main()
     }
     getline(pFile, p);   //读入明文/密文字符串
     if(p.length() % 16 != 0) {
-        for(int i = 0; i < 16 - p.length() % 16; i++) {
+        int temp = 16 - p.length() % 16;
+        // cout << 16 - p.length() % 16 << endl;
+        for(int i = 0; i < temp; i++) {
             p += "0";       //不够加密的话填0补位，方便加密
+            // cout << i << endl;
         }
     }
+    // cout << "补0后的P：" << p << endl;
+    pFile.close();  //及时关闭文件，防止内存泄露
     cout << "\n请选择准备输入密钥还是选择密钥文件，输入0选择输入密钥， 输入1选择输入密钥文件：";
     int miyao;
     cin >> miyao;
@@ -198,21 +203,34 @@ int main()
     }
     if(ed == "e") {
         c = encrypt(p, k);
+        ofstream cFile("1_encry.txt",ios::out);
+        if(!cFile.is_open()) {
+            cout << "创建/打开1_encry.txt失败，请检查文件是否被占用！" << endl;
+            system("pause");
+            return 0;
+        }
+        cFile << c;
+        cFile.close();
+        cout << "\n密文已保存至程序目录下的1_encry.txt" << endl;
     }
     else if(ed == "d") {
         c = decrypt(p, k);
+        ofstream cFile("1_decry.txt",ios::out);
+        if(!cFile.is_open()) {
+            cout << "创建/打开1_decry.txt失败，请检查文件是否被占用！" << endl;
+            system("pause");
+            return 0;
+        }
+        cFile << c;
+        cFile.close();
+        cout << "\n明文已保存至程序目录下的1_decry.txt" << endl;
     }
     else {
         cout << "参数错误！" << endl;
         system("pause");
         return 0;
     }
-    ofstream cFile("1_decry.txt",ios::out);
-    cFile << c;
-    pFile.close();
-    cFile.close();
-    cout << "\n密文/明文已保存至程序目录下的1_decry.txt" << endl;
-    vector<string> K = subKey(k);
+    // vector<string> K = subKey(k);
     // for(int i = 0; i < 16; i++) {
     //     cout << K[i] << endl;
     // }
@@ -237,15 +255,15 @@ string encrypt(string p, string k){   //加密函数
         vector<string> R(17, "00000000000000000000000000000000");
         L[0] = pIP.substr(0, 32);
         R[0] = pIP.substr(32, 32);
-        cout << "L[0]: " << L[0] << " R[0]: " << R[0] <<endl;
+        // cout << "L[0]: " << L[0] << " R[0]: " << R[0] <<endl;
         for(int j = 1; j <= 16; j++) {
             L[j] = R[j - 1];
             string F = feistel(R[j - 1], Key[j - 1]);
-            cout << "F: " << F << endl;
+            // cout << "F: " << F << endl;
             for(int k = 0; k < 32; k++){
                 R[j][k] = (L[j - 1][k] - '0') ^ (F[k] - '0') + '0';
             }
-            cout << "L[" << j << "]: " << L[j] << " R[" << j << "]: " << R[j] << endl;
+            // cout << "L[" << j << "]: " << L[j] << " R[" << j << "]: " << R[j] << endl;
         }
         string chaIPni = R[16] + L[16], enc(64, '0');
         // cout << chaIPni << endl;
@@ -261,27 +279,36 @@ string decrypt(string c, string k) {  //解密函数
     string cBin = HextoBin(c);
     vector<string> Key = subKey(k);
     reverse(Key.begin(), Key.end());
+    // for(int i = 0; i < 16; i++) {
+    //    cout << "Revered Key[" << i << "]: " << Key[i] << endl;
+    //    cout << "K: " << Key[i] << endl;
+    // }
     string ans = "";
     for(int i = 0; i < cBin.length() / 64; i++) {   // 采用ECB模式解码
         string _C = cBin.substr(i * 64, 64);
-        string cIP(64, '0');   // IP逆置换后的字符串
+        string cIP(64, '0');   // IP置换后的字符串
         for(int j = 0; j < 64; j++) {
-            cIP[j] = _C[IPni[j]];
+            cIP[j] = _C[IP[j]];
         }
+        // cout << "P: " << c << endl;
+        // cout << "M: " << _C << endl;
         vector<string> L(17, "00000000000000000000000000000000");
         vector<string> R(17, "00000000000000000000000000000000");
         L[0] = cIP.substr(0, 32);
         R[0] = cIP.substr(32, 32);
+        // cout << "L: " << L[0] << " R: " << R[0] << endl;
         for(int j = 1; j <= 16; j++) {
-            R[j] = L[j - 1];
-            string F = feistel(L[j - 1], Key[j - 1]);
+            L[j] = R[j - 1];
+            string F = feistel(R[j - 1], Key[j - 1]);
+            // cout << "F: " << F << endl;
             for(int k = 0; k < 32; k++) {
-                L[j][k] = (R[j - 1][k] - '0') ^ (F[k] - '0') + '0';
+                R[j][k] = (L[j - 1][k] - '0') ^ (F[k] - '0') + '0';
             }
+            // cout << "L: " << L[j] << " R: " << R[j] << endl;
         }
-        string chaIP = L[16] + R[16], enc(64, '0');
+        string chaIPni = R[16] + L[16], enc(64, '0');
         for(int j = 0; j < 64; j++) {
-            enc[j] = chaIP[IP[j]];
+            enc[j] = chaIPni[IPni[j]];   // IP逆置换
         }
         ans += BintoHex(enc);
     }
@@ -374,17 +401,17 @@ vector<string> subKey(string k) {
     return K1;
 }
 
-string feistel(string R, string K) {   //轮函数
+string feistel(string R, string K) {   //F函数，不是Feistel，起错名了.....Feistel在加密函数里
     string _E(48, '0');  //扩展后的R
     string F(48, '0');
     string ret = "";
-    cout << "(E)K: " << K << endl;
+    // cout << "(E)K: " << K << endl;
     for(int i = 0; i < 48; i++) {
         _E[i] = R[E[i]];
         F[i] = (_E[i] - '0') ^ (K[i] - '0') + '0';
     }
-    cout << "E(R): " << _E << endl;
-    cout << "E(R) XOR K = " << F <<endl;
+    // cout << "E(R): " << _E << endl;
+    // cout << "E(R) XOR K = " << F <<endl;
     for(int i = 0; i < 8; i++) {  // 经过S盒变换
         int x = (F[i * 6] - '0') * 2 + (F[i * 6 + 5] - '0');
         int y = (F[i * 6 + 1] -'0') * 8 + (F[i * 6 + 2] - '0') * 4 + (F[i * 6 + 3] - '0') * 2 + (F[i * 6 + 4] - '0');
@@ -396,13 +423,13 @@ string feistel(string R, string K) {   //轮函数
         else if(S[i][x][y] == 14) ret += "E";
         else ret +="F";
     }
-    cout << "Right After S-Box: " << ret << endl;
+    // cout << "Right After S-Box: " << ret << endl;
     string chaP = HextoBin(ret);   //还差P变换
-    cout << "Before P: " << chaP << endl;
+    // cout << "Before P: " << chaP << endl;
     string ans(32, '0');
     for(int i = 0; i < 32; i++) {
         ans[i] = chaP[P[i]];
     }
-    cout << "f: " << ans << endl;
+    // cout << "f: " << ans << endl;
     return ans;
 }

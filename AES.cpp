@@ -44,27 +44,39 @@ char Sboxni[16][16][3] = {
 		/*f*/{"17", "2B", "04", "7E", "BA", "77", "D6", "26", "E1", "69", "14", "63", "55", "21", "0C", "7D"}
 	};	// S盒的逆
 
-vector<vector<string>> MixC = {
-	{"02", "03", "01", "01"},
-	{"01", "02", "03", "01"},
-	{"01", "01", "02", "03"},
-	{"03", "01", "01", "02"}
-};  // 列混合矩阵
-    
+char Rcon[10][4][3] = {
+	{"01", "00", "00", "00"},
+	{"02", "00", "00", "00"},
+	{"04", "00", "00", "00"},
+	{"08", "00", "00", "00"},
+	{"10", "00", "00", "00"},
+	{"20", "00", "00", "00"},
+	{"40", "00", "00", "00"},
+	{"80", "00", "00", "00"},
+	{"1B", "00", "00", "00"},
+	{"36", "00", "00", "00"}
+};  // 轮常量矩阵
+
+static int flag = 0; //循环轮数
+
+vector<string> MixC = {"02", "01", "01", "03"};
+
 string encrypt(string p, string k);
 string decrypt(string c, string k);
 string LowToUpper(string low);  //小写字母转大写字母
 string HextoBin(string Hex);  //十六进制转二进制
 string BintoHex(string Bin);  //二进制转十六进制
 int HexToDec(char Hex);   //十六进制字符转10进制数字
-vector<vector<string>> nineRounds(vector<vector<string>> P);   //9轮变换
-vector<vector<string>> finalRounds(vector<vector<string>> P);   //最终轮变换
+vector<vector<string>> nineRounds(vector<vector<string>> P, vector<vector<string>> K);   //9轮变换
+vector<vector<string>> finalRounds(vector<vector<string>> P, vector<vector<string>> K);   //最终轮变换
 vector<vector<string>> subBytes(vector<vector<string>> P); // 字节代换
 vector<vector<string>> ShiftRows(vector<vector<string>> P);   // 行移位
-vector<vector<string>> MixColumns(vector<vector<string>> p, vector<vector<string>> MixC);   //列混合
-vector<vector<string>> AddRoundKey(vector<vector<string>> P);  //轮密钥加
+vector<vector<string>> MixColumns(vector<vector<string>> p, vector<string> MisC);   //列混合
+vector<vector<string>> AddRoundKey(vector<vector<string>> P, vector<vector<string>> K);  //轮密钥加
 vector<vector<string>> subKey(vector<vector<string>> k);  //密钥扩展
 string hexXor(string a, string b); //16进制抑或
+string hexTimes(string a, string b);  //16进制乘法，a为列混合矩阵元素,只取01,02,03
+vector<vector<string>> transMatrix(vector<vector<string>> K);   // 转置矩阵
 
 int main()
 {
@@ -93,6 +105,7 @@ int main()
     // }
     // cout << "补0后的P：" << p << endl;
     pFile.close();  //及时关闭文件，防止内存泄露
+	p = LowToUpper(p);
     cout << "\n请选择准备输入密钥还是选择密钥文件，输入0选择输入密钥， 输入1选择输入密钥文件：";
     int miyao;
     cin >> miyao;
@@ -110,6 +123,7 @@ int main()
             return 0;
         }
         getline(kFile, k);   //读入密钥字符串
+		k = LowToUpper(k);
         kFile.close();
         if(k.length() != 16) {
             cout << "\n请将密钥长度限制为16位！"  << endl;
@@ -172,24 +186,55 @@ string encrypt(string p, string k) {
 			}
 		}
 	}
+	Key = subKey(Key);
 	for (int i = 0; i < 4; i++) {
 		for (int j = 0; j < 4; j++) {
 			P[i][j] = hexXor(P[i][j], Key[i][j]);   //初始变换(Initial round)
 		}
 	}
-	P = nineRounds(P);   //9轮循环运算
-	P = finalRounds(P);  //最终轮运算
+	P = nineRounds(P, Key);   //9轮循环运算
+	P = finalRounds(P, Key);  //最终轮运算
 	for (int i = 0; i < 4; i++) {
 		for (int j = 0; j < 4; j++) {
 			ans += P[i][j];
 			ans += " ";
 		}
 	}
+	flag = 0;
 	return ans;    // 得到密文
 }
 
 vector<vector<string>> subKey(vector<vector<string>> K) {  //密钥扩展
 	vector<vector<string>> sKey(44, vector<string>(4, "00"));
+	vector<vector<string>> sKeyT(4, vector<string>(44, "00"));
+	for (int i = 0; i < 4; i++) {
+		for (int j = 0; j < 4; j++) {
+			sKey[i][j] = K[i][j];
+		}
+	}
+	sKey = transMatrix(sKey);
+	for (int i = 4; i < 44; i++) {
+		if (i % 4 != 0) {
+			for (int j = 0; j < 4; j++) {
+				sKey[i][j] = hexXor(sKey[i - 4][j], sKey[i - 1][j]);
+			}
+		}
+		else {
+			vector<string> tempK = sKey[i - 1];
+			vector<string> SK = tempK;
+			vector<string> TK(4, "00");
+			string temp = tempK[i - 1][0];
+			for (int j = 0; j < 3; j++) {
+				tempK[j] = tempK[j + 1];
+			}
+			tempK[3] = temp;
+			for (int j = 0; j < 4; j++) {
+				SK[j] = Sbox[HexToDec(tempK[i][j][0])][HexToDec(tempK[i][j][1])];
+				sKey[i][j] = hexXor(hexXor(sKey[i - 4][j], SK[j]), Rcon[i / 4][j]);
+			}
+		}
+	}
+	sKey = transMatrix(sKey);
 	return sKey;
 }
 
@@ -220,27 +265,41 @@ vector<vector<string>> ShiftRows(vector<vector<string>> P) {  // 行移位(Shift
 	return SP;
 }
 
-vector<vector<string>> MixColumns(vector<vector<string>> p, vector<vector<string>> MixC) {   //列混合
-	// GF(2^8)上的矩阵乘法
-	return p;
+vector<vector<string>> MixColumns(vector<vector<string>> p, vector<string> A) {   //列混合
+	vector<vector<string>> SP(4, vector<string>(4, "00"));	
+	for (int i = 0; i < 4; i++) {  // GF(2^8)上的矩阵乘法
+			SP[i][0] = hexXor(hexXor(hexTimes(A[0], p[i][0]), hexTimes(A[3], p[i][1])), hexXor(hexTimes(A[2], p[i][2]), hexTimes(A[1], p[i][3])));
+			SP[i][1] = hexXor(hexXor(hexTimes(A[1], p[i][0]), hexTimes(A[0], p[i][1])), hexXor(hexTimes(A[3], p[i][2]), hexTimes(A[2], p[i][3])));
+			SP[i][2] = hexXor(hexXor(hexTimes(A[2], p[i][0]), hexTimes(A[1], p[i][1])), hexXor(hexTimes(A[0], p[i][2]), hexTimes(A[3], p[i][3])));
+			SP[i][3] = hexXor(hexXor(hexTimes(A[3], p[i][0]), hexTimes(A[2], p[i][1])), hexXor(hexTimes(A[1], p[i][2]), hexTimes(A[0], p[i][3])));
+	}
+	return SP;
 }
 
-vector<vector<string>> AddRoundKey(vector<vector<string>> P) {  //轮密钥加
-	return P;
+vector<vector<string>> AddRoundKey(vector<vector<string>> P, vecotr<vector<string>> K) {  //轮密钥加
+	vector<vector<string>> ARK(4, vector<string>(4, "00"));
+	for (int i = 0; i < 4; i++) {
+		for (int j = 0; j < 4; j++) {
+			ARK[i][j] = hexXor(P[i][j], K[flag * 4 + i][j]);
+		}
+	}
+	return ARK;
 }
 
-vector<vector<string>> nineRounds(vector<vector<string>> P) {  // 9轮变换
+vector<vector<string>> nineRounds(vector<vector<string>> P, vector<vector<string>> K) {  // 9轮变换
+	flag++;
 	P = subBytes(P);
 	P = ShiftRows(P);
 	P = MixColumns(P, MixC);
-	P = AddRoundKey(P);
+	P = AddRoundKey(P, K);
 	return P;
 }
 
-vector<vector<string>> finalRounds(vector<vector<string>> P) {   //最终轮变换
+vector<vector<string>> finalRounds(vector<vector<string>> P, vector<vector<string>> K) {   //最终轮变换
+	flag++;
 	P = subBytes(P);
 	P = ShiftRows(P);
-	P = AddRoundKey(P);
+	P = AddRoundKey(P, K);
 	return P;
 }
 
@@ -310,4 +369,41 @@ string hexXor(string a, string b) {
 		x[i] = (A[i] - '0') ^ (B[i] - '0');
 	}
 	return BintoHex(x);
+}
+
+string hexTimes(string a, string b) {
+	string A = HextoBin(a);
+	string B = HextoBin(b);
+	string ans(32, '0');
+	if (a == "01") {
+		return b;
+	}
+	else if (a == "02") {
+		for (int i = 0; i < 7; i++) {
+			ans[i] = A[i + 1];
+		}
+		if (B[0] == '0') {
+			return ans;
+		}
+		else {
+			return hexXor(ans, "1B");
+		}
+	}
+	else if (a == "03") {
+		return hexXor(hexTimes("02", B), B);
+	}
+	else {
+		cout << "列混合步骤出错，请检查列混合矩阵！" << endl;
+		return 0;
+	}
+}
+
+vector<vector<string>> transMatrix(vector<vector<string>> K) {
+	vector<vector<string>> TK(K[0].size(), vector<string>(K.size(), "00"));
+	for (int i =0; i < K.size(); i++) {
+		for (int j = 0; j < K[0].size(); j++) {
+			TK[j][i] = K[i][j];
+		}
+	}
+	return TK;
 }

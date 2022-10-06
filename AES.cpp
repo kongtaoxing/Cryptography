@@ -220,16 +220,15 @@ vector<vector<string>> subKey(vector<vector<string>> K) {  //密钥扩展
 			}
 		}
 		else {
-			vector<string> tempK = sKey[i - 1];
-			vector<string> SK = tempK;
-			vector<string> TK(4, "00");
-			string temp = tempK[i - 1][0];
+			vector<string> tempK = sKey[i - 1];  //字循环
+			vector<string> SK = tempK;           //S盒
+			char temp = tempK[i - 1][0];
 			for (int j = 0; j < 3; j++) {
 				tempK[j] = tempK[j + 1];
 			}
 			tempK[3] = temp;
 			for (int j = 0; j < 4; j++) {
-				SK[j] = Sbox[HexToDec(tempK[i][j][0])][HexToDec(tempK[i][j][1])];
+				SK[j] = Sbox[HexToDec(tempK[j][0])][HexToDec(tempK[j][1])];
 				sKey[i][j] = hexXor(hexXor(sKey[i - 4][j], SK[j]), Rcon[i / 4][j]);
 			}
 		}
@@ -276,7 +275,7 @@ vector<vector<string>> MixColumns(vector<vector<string>> p, vector<string> A) { 
 	return SP;
 }
 
-vector<vector<string>> AddRoundKey(vector<vector<string>> P, vecotr<vector<string>> K) {  //轮密钥加
+vector<vector<string>> AddRoundKey(vector<vector<string>> P, vector<vector<string>> K) {  //轮密钥加
 	vector<vector<string>> ARK(4, vector<string>(4, "00"));
 	for (int i = 0; i < 4; i++) {
 		for (int j = 0; j < 4; j++) {

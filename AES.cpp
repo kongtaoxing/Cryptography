@@ -78,99 +78,9 @@ string hexXor(string a, string b); //16进制抑或
 string hexTimes(string a, string b);  //16进制乘法，a为列混合矩阵元素,只取01,02,03
 vector<vector<string>> transMatrix(vector<vector<string>> K);   // 转置矩阵
 
-int main()
-{
-    string PATH_P, PATH_C, PATH_K = "";
-    string p, c, k;
-    cout << "请输入你想加密还是解密，加密为e，解密为d：";
-    string ed;
-    cin >> ed;
-    cout << "\n请输入需要加解密的文件路径(路径中的单斜杠请输入为双斜杠，以下同)：";
-    cin >> PATH_P;
-    ifstream pFile(PATH_P, ios::in);
-    ifstream kFile;
-    if(!pFile.is_open()){
-        cout << "\n打开明文/密文文件失败！" << endl;
-        system("pause");
-        return 0;
-    }
-    getline(pFile, p);   //读入明文/密文字符串
-    // if(p.length() % 16 != 0) {
-    //     int temp = 16 - p.length() % 16;
-    //     // cout << 16 - p.length() % 16 << endl;
-    //     for(int i = 0; i < temp; i++) {
-    //         p += "0";       //不够加密的话填0补位，方便加密
-    //         // cout << i << endl;
-    //     }
-    // }
-    // cout << "补0后的P：" << p << endl;
-    pFile.close();  //及时关闭文件，防止内存泄露
-	p = LowToUpper(p);
-    cout << "\n请选择准备输入密钥还是选择密钥文件，输入0选择输入密钥， 输入1选择输入密钥文件：";
-    int miyao;
-    cin >> miyao;
-    if(miyao == 0) {
-        cout << "\n请输入密钥：";
-        cin >> k;
-    }
-    else {
-        cout << "\n请输入密钥文件路径：";
-        cin >> PATH_K;
-        kFile.open(PATH_K, ios::in);
-        if(!kFile.is_open()) {
-            cout << "\n打开密钥文件失败！" << endl;
-            system("pause");
-            return 0;
-        }
-        getline(kFile, k);   //读入密钥字符串
-		k = LowToUpper(k);
-        kFile.close();
-        if(k.length() != 16) {
-            cout << "\n请将密钥长度限制为16位！"  << endl;
-            system("pause");
-            return 0;
-        }
-    }
-    if(ed == "e") {
-        c = encrypt(p, k);
-        ofstream cFile("1_encry.txt",ios::out);
-        if(!cFile.is_open()) {
-            cout << "创建/打开1_encry.txt失败，请检查文件是否被占用！" << endl;
-            system("pause");
-            return 0;
-        }
-        cFile << c;
-        cFile.close();
-        cout << "\n密文已保存至程序目录下的1_encry.txt" << endl;
-    }
-    else if(ed == "d") {
-        c = decrypt(p, k);
-        ofstream cFile("1_decry.txt",ios::out);
-        if(!cFile.is_open()) {
-            cout << "创建/打开1_decry.txt失败，请检查文件是否被占用！" << endl;
-            system("pause");
-            return 0;
-        }
-        cFile << c;
-        cFile.close();
-        cout << "\n明文已保存至程序目录下的1_decry.txt" << endl;
-    }
-    else {
-        cout << "参数错误！" << endl;
-        system("pause");
-        return 0;
-    }
-    // vector<string> K = subKey(k);
-    // for(int i = 0; i < 16; i++) {
-    //     cout << K[i] << endl;
-    // }
-    system("pause");
-    return 0;
-}
-
 string encrypt(string p, string k) {
 	vector<vector<string>> P(4, vector<string>(4, "00"));
-	vector<vector<string>> Key(4, vector<string>(4, "00"));
+	vector<vector<string>> Key(44, vector<string>(4, "00"));
 	string ans = "";
 	for (int i = 0; i < 4; i++) {
 		for (int j = 0; j < 4; j++) {
@@ -206,13 +116,11 @@ string encrypt(string p, string k) {
 
 vector<vector<string>> subKey(vector<vector<string>> K) {  //密钥扩展
 	vector<vector<string>> sKey(44, vector<string>(4, "00"));
-	vector<vector<string>> sKeyT(4, vector<string>(44, "00"));
 	for (int i = 0; i < 4; i++) {
 		for (int j = 0; j < 4; j++) {
 			sKey[i][j] = K[i][j];
 		}
 	}
-	sKey = transMatrix(sKey);
 	for (int i = 4; i < 44; i++) {
 		if (i % 4 != 0) {
 			for (int j = 0; j < 4; j++) {
@@ -221,19 +129,18 @@ vector<vector<string>> subKey(vector<vector<string>> K) {  //密钥扩展
 		}
 		else {
 			vector<string> tempK = sKey[i - 1];  //字循环
-			vector<string> SK = tempK;           //S盒
-			char temp = tempK[i - 1][0];
+			string temp = tempK[0];
 			for (int j = 0; j < 3; j++) {
 				tempK[j] = tempK[j + 1];
 			}
 			tempK[3] = temp;
+			vector<string> SK = tempK;           //S盒
 			for (int j = 0; j < 4; j++) {
 				SK[j] = Sbox[HexToDec(tempK[j][0])][HexToDec(tempK[j][1])];
-				sKey[i][j] = hexXor(hexXor(sKey[i - 4][j], SK[j]), Rcon[i / 4][j]);
+				sKey[i][j] = hexXor(hexXor(sKey[i - 4][j], SK[j]), Rcon[i / 4 - 1][j]);
 			}
 		}
 	}
-	sKey = transMatrix(sKey);
 	return sKey;
 }
 
@@ -365,7 +272,7 @@ string hexXor(string a, string b) {
 	string B = HextoBin(b);
 	string x(A.length(), '0');
 	for (int i = 0; i < A.length(); i++) {
-		x[i] = (A[i] - '0') ^ (B[i] - '0');
+		x[i] = (A[i] - '0') ^ (B[i] - '0') + '0';
 	}
 	return BintoHex(x);
 }
@@ -405,4 +312,94 @@ vector<vector<string>> transMatrix(vector<vector<string>> K) {
 		}
 	}
 	return TK;
+}
+
+int main()
+{
+    string PATH_P, PATH_C, PATH_K = "";
+    string p, c, k;
+    cout << "请输入你想加密还是解密，加密为e，解密为d：";
+    string ed;
+    cin >> ed;
+    cout << "\n请输入需要加解密的文件路径(路径中的单斜杠请输入为双斜杠，以下同)：";
+    cin >> PATH_P;
+    ifstream pFile(PATH_P, ios::in);
+    ifstream kFile;
+    if(!pFile.is_open()){
+        cout << "\n打开明文/密文文件失败！" << endl;
+        system("pause");
+        return 0;
+    }
+    getline(pFile, p);   //读入明文/密文字符串
+    // if(p.length() % 16 != 0) {
+    //     int temp = 16 - p.length() % 16;
+    //     // cout << 16 - p.length() % 16 << endl;
+    //     for(int i = 0; i < temp; i++) {
+    //         p += "0";       //不够加密的话填0补位，方便加密
+    //         // cout << i << endl;
+    //     }
+    // }
+    // cout << "补0后的P：" << p << endl;
+    pFile.close();  //及时关闭文件，防止内存泄露
+	p = LowToUpper(p);
+    cout << "\n请选择准备输入密钥还是选择密钥文件，输入0选择输入密钥， 输入1选择输入密钥文件：";
+    int miyao;
+    cin >> miyao;
+    if(miyao == 0) {
+        cout << "\n请输入密钥：";
+        cin >> k;
+    }
+    else {
+        cout << "\n请输入密钥文件路径：";
+        cin >> PATH_K;
+        kFile.open(PATH_K, ios::in);
+        if(!kFile.is_open()) {
+            cout << "\n打开密钥文件失败！" << endl;
+            system("pause");
+            return 0;
+        }
+        getline(kFile, k);   //读入密钥字符串
+		k = LowToUpper(k);
+        kFile.close();
+        if(k.length() != 16) {
+            cout << "\n请将密钥长度限制为16位！"  << endl;
+            system("pause");
+            return 0;
+        }
+    }
+    if(ed == "e") {
+        c = encrypt(p, k);
+        ofstream cFile("1_encry.txt",ios::out);
+        if(!cFile.is_open()) {
+            cout << "创建/打开1_encry.txt失败，请检查文件是否被占用！" << endl;
+            system("pause");
+            return 0;
+        }
+        cFile << c;
+        cFile.close();
+        cout << "\n密文已保存至程序目录下的1_encry.txt" << endl;
+    }
+    else if(ed == "d") {
+        c = decrypt(p, k);
+        ofstream cFile("1_decry.txt",ios::out);
+        if(!cFile.is_open()) {
+            cout << "创建/打开1_decry.txt失败，请检查文件是否被占用！" << endl;
+            system("pause");
+            return 0;
+        }
+        cFile << c;
+        cFile.close();
+        cout << "\n明文已保存至程序目录下的1_decry.txt" << endl;
+    }
+    else {
+        cout << "参数错误！" << endl;
+        system("pause");
+        return 0;
+    }
+    // vector<string> K = subKey(k);
+    // for(int i = 0; i < 16; i++) {
+    //     cout << K[i] << endl;
+    // }
+    system("pause");
+    return 0;
 }

@@ -24,7 +24,7 @@ char Sbox[16][16][3] = {
 		/*f*/{ "8C", "A1", "89", "0D", "BF", "E6", "42", "68", "41", "99", "2D", "0F", "B0", "54", "BB", "16" }
 	};// S盒
     
-	char Sboxni[16][16][3] = {
+char Sboxni[16][16][3] = {
 		/****   0     1     2     3     4     5     6     7     8     9     a     b     c     d     e     f */
 		/*0*/{"52", "09", "6A", "D5", "30", "36", "A5", "38", "BF", "40", "A3", "9E", "81", "F3", "D7", "FB"},
 		/*1*/{"7C", "E3", "39", "82", "9B", "2F", "FF", "87", "34", "8E", "43", "44", "C4", "DE", "E9", "CB"},
@@ -43,16 +43,25 @@ char Sbox[16][16][3] = {
 		/*e*/{"A0", "E0", "3B", "4D", "AE", "2A", "F5", "B0", "C8", "EB", "BB", "3C", "83", "53", "99", "61"},
 		/*f*/{"17", "2B", "04", "7E", "BA", "77", "D6", "26", "E1", "69", "14", "63", "55", "21", "0C", "7D"}
 	};	// S盒的逆
+
+vector<vector<string>> MixC = {
+	{"02", "03", "01", "01"},
+	{"01", "02", "03", "01"},
+	{"01", "01", "02", "03"},
+	{"03", "01", "01", "02"}
+};  // 列混合矩阵
     
 string encrypt(string p, string k);
-string decrypt(string p, string k);
+string decrypt(string c, string k);
 string LowToUpper(string low);  //小写字母转大写字母
 string HextoBin(string Hex);  //十六进制转二进制
 string BintoHex(string Bin);  //二进制转十六进制
 int HexToDec(char Hex);   //十六进制字符转10进制数字
 vector<vector<string>> nineRounds(vector<vector<string>> P);   //9轮变换
 vector<vector<string>> finalRounds(vector<vector<string>> P);   //最终轮变换
-vector<vector<string>> MixColumns(vector<vector<string>> p);   //列混合
+vector<vector<string>> subBytes(vector<vector<string>> P); // 字节代换
+vector<vector<string>> ShiftRows(vector<vector<string>> P);   // 行移位
+vector<vector<string>> MixColumns(vector<vector<string>> p, vector<vector<string>> MixC);   //列混合
 vector<vector<string>> AddRoundKey(vector<vector<string>> P);  //轮密钥加
 vector<vector<string>> subKey(vector<vector<string>> k);  //密钥扩展
 string hexXor(string a, string b); //16进制抑或
@@ -148,6 +157,7 @@ int main()
 string encrypt(string p, string k) {
 	vector<vector<string>> P(4, vector<string>(4, "00"));
 	vector<vector<string>> Key(4, vector<string>(4, "00"));
+	string ans = "";
 	for (int i = 0; i < 4; i++) {
 		for (int j = 0; j < 4; j++) {
 			for(int kk = 0; kk < 2; kk++) {
@@ -169,7 +179,13 @@ string encrypt(string p, string k) {
 	}
 	P = nineRounds(P);   //9轮循环运算
 	P = finalRounds(P);  //最终轮运算
-	return p;    // 得到密文
+	for (int i = 0; i < 4; i++) {
+		for (int j = 0; j < 4; j++) {
+			ans += P[i][j];
+			ans += " ";
+		}
+	}
+	return ans;    // 得到密文
 }
 
 vector<vector<string>> subKey(vector<vector<string>> K) {  //密钥扩展
@@ -177,21 +193,19 @@ vector<vector<string>> subKey(vector<vector<string>> K) {  //密钥扩展
 	return sKey;
 }
 
-vector<vector<string>> MixColumns(vector<vector<string>> p) {   //列混合
-	return p;
-}
-
-vector<vector<string>> AddRoundKey(vector<vector<string>> P) {  //轮密钥加
-	return P;
-}
-vector<vector<string>> nineRounds(vector<vector<string>> P) {  // 9轮变换
+vector<vector<string>> subBytes(vector<vector<string>> P) { // 字节代换
 	vector<vector<string>> SP(4, vector<string>(4, "00"));
 	for (int i = 0; i < 4; i++) {
 		for (int j = 0; j < 4; j++) {
 			SP[i][j] = Sbox[HexToDec(P[i][j][0])][HexToDec(P[i][j][1])];  //字节代换(SubBytes)
 		}
 	}
-	for (int i = 1; i < 4; i++) {  // 行移位(ShiftRows)
+	return SP;
+}
+
+vector<vector<string>> ShiftRows(vector<vector<string>> P) {  // 行移位(ShiftRows)
+	vector<vector<string>> SP(4, vector<string>(4, "00"));
+	for (int i = 1; i < 4; i++) {
 		vector<string> temp;
 		for (int j = 0; j < i; j++) {
 			temp.push_back(SP[i][j]);
@@ -199,21 +213,39 @@ vector<vector<string>> nineRounds(vector<vector<string>> P) {  // 9轮变换
 		for (int j = i; j < 4; j++) {
 			SP[i][j - i] = SP[i][j];
 		}
-		for (int j = i; j < 4; j++) {
-			SP[i][j] = temp[j - i];
+		for (int j = 4 - i; j < 4; j++) {
+			SP[i][j] = temp[j - (4 - i)];
 		}
 	}
-	SP = MixColumns(SP);
-	SP = AddRoundKey(SP);
 	return SP;
 }
 
-vector<vector<string>> finalRounds(vector<vector<string>> P) {   //最终轮变换
+vector<vector<string>> MixColumns(vector<vector<string>> p, vector<vector<string>> MixC) {   //列混合
+	// GF(2^8)上的矩阵乘法
+	return p;
+}
+
+vector<vector<string>> AddRoundKey(vector<vector<string>> P) {  //轮密钥加
 	return P;
 }
 
-string decrypt(string p, string k) {
-	return p;
+vector<vector<string>> nineRounds(vector<vector<string>> P) {  // 9轮变换
+	P = subBytes(P);
+	P = ShiftRows(P);
+	P = MixColumns(P, MixC);
+	P = AddRoundKey(P);
+	return P;
+}
+
+vector<vector<string>> finalRounds(vector<vector<string>> P) {   //最终轮变换
+	P = subBytes(P);
+	P = ShiftRows(P);
+	P = AddRoundKey(P);
+	return P;
+}
+
+string decrypt(string c, string k) {
+	return c;
 }
 
 string HextoBin(string Hex) {

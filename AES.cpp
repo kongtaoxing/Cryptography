@@ -359,15 +359,10 @@ int main()
         getline(kFile, k);   //读入密钥字符串
 		k = LowToUpper(k);
         kFile.close();
-        if(k.length() != 16) {
-            cout << "\n请将密钥长度限制为16位！"  << endl;
-            system("pause");
-            return 0;
-        }
     }
     if(ed == "e") {
         c = encrypt(p, k);
-        ofstream cFile("1_encry.txt",ios::out);
+        ofstream cFile("test1_encry.txt",ios::out);
         if(!cFile.is_open()) {
             cout << "创建/打开1_encry.txt失败，请检查文件是否被占用！" << endl;
             system("pause");
@@ -375,7 +370,7 @@ int main()
         }
         cFile << c;
         cFile.close();
-        cout << "\n密文已保存至程序目录下的1_encry.txt" << endl;
+        cout << "\n密文已保存至程序目录下的test1_encry.txt" << endl;
     }
     else if(ed == "d") {
         c = decrypt(p, k);

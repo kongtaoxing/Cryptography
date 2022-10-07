@@ -102,6 +102,7 @@ string encrypt(string p, string k) {
 			P[i][j] = hexXor(P[i][j], Key[i][j]);   //初始变换(Initial round)
 		}
 	}
+	P = transMatrix(P);   // 明文矩阵是竖着读进去的，但是需要横着用
 	P = nineRounds(P, Key);   //9轮循环运算
 	P = finalRounds(P, Key);  //最终轮运算
 	for (int i = 0; i < 4; i++) {
@@ -155,20 +156,19 @@ vector<vector<string>> subBytes(vector<vector<string>> P) { // 字节代换
 }
 
 vector<vector<string>> ShiftRows(vector<vector<string>> P) {  // 行移位(ShiftRows)
-	vector<vector<string>> SP(4, vector<string>(4, "00"));
 	for (int i = 1; i < 4; i++) {
 		vector<string> temp;
 		for (int j = 0; j < i; j++) {
-			temp.push_back(SP[i][j]);
+			temp.push_back(P[i][j]);
 		}
 		for (int j = i; j < 4; j++) {
-			SP[i][j - i] = SP[i][j];
+			P[i][j - i] = P[i][j];
 		}
 		for (int j = 4 - i; j < 4; j++) {
-			SP[i][j] = temp[j - (4 - i)];
+			P[i][j] = temp[j - (4 - i)];
 		}
 	}
-	return SP;
+	return P;
 }
 
 vector<vector<string>> MixColumns(vector<vector<string>> p, vector<string> A) {   //列混合
@@ -314,6 +314,7 @@ vector<vector<string>> transMatrix(vector<vector<string>> K) {
 	return TK;
 }
 
+
 int main()
 {
     string PATH_P, PATH_C, PATH_K = "";
@@ -331,15 +332,6 @@ int main()
         return 0;
     }
     getline(pFile, p);   //读入明文/密文字符串
-    // if(p.length() % 16 != 0) {
-    //     int temp = 16 - p.length() % 16;
-    //     // cout << 16 - p.length() % 16 << endl;
-    //     for(int i = 0; i < temp; i++) {
-    //         p += "0";       //不够加密的话填0补位，方便加密
-    //         // cout << i << endl;
-    //     }
-    // }
-    // cout << "补0后的P：" << p << endl;
     pFile.close();  //及时关闭文件，防止内存泄露
 	p = LowToUpper(p);
     cout << "\n请选择准备输入密钥还是选择密钥文件，输入0选择输入密钥， 输入1选择输入密钥文件：";
@@ -396,10 +388,6 @@ int main()
         system("pause");
         return 0;
     }
-    // vector<string> K = subKey(k);
-    // for(int i = 0; i < 16; i++) {
-    //     cout << K[i] << endl;
-    // }
     system("pause");
     return 0;
 }

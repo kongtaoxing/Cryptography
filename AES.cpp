@@ -172,6 +172,7 @@ vector<vector<string>> ShiftRows(vector<vector<string>> P) {  // 行移位(Shift
 }
 
 vector<vector<string>> MixColumns(vector<vector<string>> p, vector<string> A) {   //列混合
+	p = transMatrix(p);  //将列转化为行，方便计算
 	vector<vector<string>> SP(4, vector<string>(4, "00"));	
 	for (int i = 0; i < 4; i++) {  // GF(2^8)上的矩阵乘法
 			SP[i][0] = hexXor(hexXor(hexTimes(A[0], p[i][0]), hexTimes(A[3], p[i][1])), hexXor(hexTimes(A[2], p[i][2]), hexTimes(A[1], p[i][3])));
@@ -179,6 +180,7 @@ vector<vector<string>> MixColumns(vector<vector<string>> p, vector<string> A) { 
 			SP[i][2] = hexXor(hexXor(hexTimes(A[2], p[i][0]), hexTimes(A[1], p[i][1])), hexXor(hexTimes(A[0], p[i][2]), hexTimes(A[3], p[i][3])));
 			SP[i][3] = hexXor(hexXor(hexTimes(A[3], p[i][0]), hexTimes(A[2], p[i][1])), hexXor(hexTimes(A[1], p[i][2]), hexTimes(A[0], p[i][3])));
 	}
+	SP = transMatrix(SP);  //再转化回去
 	return SP;
 }
 
@@ -280,23 +282,23 @@ string hexXor(string a, string b) {
 string hexTimes(string a, string b) {
 	string A = HextoBin(a);
 	string B = HextoBin(b);
-	string ans(32, '0');
+	string ans(8, '0');
 	if (a == "01") {
 		return b;
 	}
 	else if (a == "02") {
 		for (int i = 0; i < 7; i++) {
-			ans[i] = A[i + 1];
+			ans[i] = B[i + 1];
 		}
 		if (B[0] == '0') {
-			return ans;
+			return BintoHex(ans);
 		}
 		else {
-			return hexXor(ans, "1B");
+			return hexXor(BintoHex(ans), "1B");
 		}
 	}
 	else if (a == "03") {
-		return hexXor(hexTimes("02", B), B);
+		return hexXor(hexTimes("02", b), b);
 	}
 	else {
 		cout << "列混合步骤出错，请检查列混合矩阵！" << endl;
@@ -313,7 +315,6 @@ vector<vector<string>> transMatrix(vector<vector<string>> K) {
 	}
 	return TK;
 }
-
 
 int main()
 {

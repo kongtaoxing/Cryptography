@@ -105,6 +105,7 @@ string encrypt(string p, string k) {
 	P = transMatrix(P);   // 明文矩阵是竖着读进去的，但是需要横着用
 	P = nineRounds(P, Key);   //9轮循环运算
 	P = finalRounds(P, Key);  //最终轮运算
+	P = transMatrix(P);
 	for (int i = 0; i < 4; i++) {
 		for (int j = 0; j < 4; j++) {
 			ans += P[i][j];
@@ -185,21 +186,25 @@ vector<vector<string>> MixColumns(vector<vector<string>> p, vector<string> A) { 
 }
 
 vector<vector<string>> AddRoundKey(vector<vector<string>> P, vector<vector<string>> K) {  //轮密钥加
+	P = transMatrix(P);
 	vector<vector<string>> ARK(4, vector<string>(4, "00"));
 	for (int i = 0; i < 4; i++) {
 		for (int j = 0; j < 4; j++) {
 			ARK[i][j] = hexXor(P[i][j], K[flag * 4 + i][j]);
 		}
 	}
+	ARK = transMatrix(ARK);
 	return ARK;
 }
 
 vector<vector<string>> nineRounds(vector<vector<string>> P, vector<vector<string>> K) {  // 9轮变换
-	flag++;
-	P = subBytes(P);
-	P = ShiftRows(P);
-	P = MixColumns(P, MixC);
-	P = AddRoundKey(P, K);
+	for (int i = 0; i < 9; i++) {
+		flag++;
+		P = subBytes(P);
+		P = ShiftRows(P);
+		P = MixColumns(P, MixC);
+		P = AddRoundKey(P, K);
+	}
 	return P;
 }
 

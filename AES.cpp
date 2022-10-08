@@ -1,3 +1,11 @@
+/******************************************************************************************
+ * Name: AES.cpp
+ * Author: kongtaoxing
+ * Time: 2022/10/08
+ * Powered by Beijingjiaotong University
+ * Tips: All algebraic operations in this project are performed in the GF(2^8) finite field
+ ******************************************************************************************/
+
 #include<string>
 #include<iostream>
 #include<fstream>
@@ -57,7 +65,8 @@ char Rcon[10][4][3] = {
 	{"36", "00", "00", "00"}
 };  // 轮常量矩阵
 
-static int flag = 0; //循环轮数
+static int flag_e = 00; //加密循环轮数
+static int flag_d = 10; //解密循环轮数
 
 vector<string> MixC = {"02", "01", "01", "03"};
 vector<string> MixCni = {"0E", "09", "0D", "0B"};
@@ -74,7 +83,7 @@ vector<vector<string>> subBytes(vector<vector<string>> P, char ed); // 字节代
 vector<vector<string>> ShiftRows(vector<vector<string>> P);   // 行移位
 vector<vector<string>> invShiftRows(vector<vector<string>> P);   // 逆行移位
 vector<vector<string>> MixColumns(vector<vector<string>> p, vector<string> MisC);   //列混合
-vector<vector<string>> AddRoundKey(vector<vector<string>> P, vector<vector<string>> K);  //轮密钥加
+vector<vector<string>> AddRoundKey(vector<vector<string>> P, vector<vector<string>> K, char ed);  //轮密钥加
 vector<vector<string>> subKey(vector<vector<string>> k);  //密钥扩展
 string hexXor(string a, string b); //16进制抑或
 string hexTimes(string a, string b);  //16进制乘法，a为列混合矩阵元素,只取01,02,03
@@ -107,10 +116,47 @@ string encrypt(string p, string k) {
 	P = transMatrix(P);   // 明文矩阵是竖着读进去的，但是需要横着用
 	P = nineRounds(P, Key, 'e');   //9轮循环运算
 	P = finalRounds(P, Key, 'e');  //最终轮运算
-	P = transMatrix(P);
+	P = transMatrix(P);  //还原回去
 	for (int i = 0; i < 4; i++) {
 		for (int j = 0; j < 4; j++) {
 			ans += P[i][j];
+			ans += " ";
+		}
+	}
+	return ans;    // 得到密文
+}
+
+string decrypt(string c, string k) {
+	vector<vector<string>> C(4, vector<string>(4, "00"));
+	vector<vector<string>> Key(44, vector<string>(4, "00"));
+	string ans = "";
+	for (int i = 0; i < 4; i++) {
+		for (int j = 0; j < 4; j++) {
+			for(int kk = 0; kk < 2; kk++) {
+				C[i][j][kk] = c[(i * 4 + j) * 3 + kk];   //丢弃掉中间的空格，将字符串转换为矩阵
+			}
+		}
+	}
+	for (int i = 0; i < 4; i++) {
+		for (int j = 0; j < 4; j++) {
+			for(int kk = 0; kk < 2; kk++) {
+				Key[i][j][kk] = k[(i * 4 + j) * 3 + kk];   //丢弃掉中间的空格，将字符串转换为矩阵
+			}
+		}
+	}
+	Key = subKey(Key);
+	for (int i = 0; i < 4; i++) {
+		for (int j = 0; j < 4; j++) {
+			C[i][j] = hexXor(C[i][j], Key[40 + i][j]);   //逆初始变换(Initial round)
+		}
+	}
+	C = transMatrix(C);   // 密文矩阵是竖着读进去的，但是需要横着用
+	C = finalRounds(C, Key, 'd');  //最终轮运算
+	C = nineRounds(C, Key, 'd');   //9轮循环运算
+	C = transMatrix(C); //还原回去
+	for (int i = 0; i < 4; i++) {
+		for (int j = 0; j < 4; j++) {
+			ans += C[i][j];
 			ans += " ";
 		}
 	}
@@ -189,10 +235,10 @@ vector<vector<string>> invShiftRows(vector<vector<string>> P) {   // 逆行移�
 			temp.push_back(P[i][j]);
 		}
 		for (int j = 3; j >= i; j--) {
-			P[i][j] = P[i][j - 1];
+			P[i][j] = P[i][j - i];
 		}
 		for (int j = 0; j < i; j++) {
-			P[i][j] = temp[i];
+			P[i][j] = temp[j];
 		}
 	}
 	return P;
@@ -211,84 +257,63 @@ vector<vector<string>> MixColumns(vector<vector<string>> p, vector<string> A) { 
 	return SP;
 }
 
-vector<vector<string>> AddRoundKey(vector<vector<string>> P, vector<vector<string>> K) {  //轮密钥加
-	P = transMatrix(P);
+vector<vector<string>> AddRoundKey(vector<vector<string>> P, vector<vector<string>> K, char ed) {  //轮密钥加
+	P = transMatrix(P);   //轮密钥加要用列，先翻转一下
 	vector<vector<string>> ARK(4, vector<string>(4, "00"));
-	for (int i = 0; i < 4; i++) {
-		for (int j = 0; j < 4; j++) {
-			ARK[i][j] = hexXor(P[i][j], K[flag * 4 + i][j]);
+	if (ed == 'e') {
+		for (int i = 0; i < 4; i++) {
+			for (int j = 0; j < 4; j++) {
+				ARK[i][j] = hexXor(P[i][j], K[flag_e * 4 + i][j]);
+			}
 		}
 	}
-	ARK = transMatrix(ARK);
+	else {
+		for (int i = 0; i < 4; i++) {
+			for (int j = 0; j < 4; j++) {
+				ARK[i][j] = hexXor(P[i][j], K[flag_d * 4 + i][j]);
+			}
+		}
+	}
+	ARK = transMatrix(ARK);   //再给他翻转回去
 	return ARK;
 }
 
 vector<vector<string>> nineRounds(vector<vector<string>> P, vector<vector<string>> K, char ed) {  // 9轮变换
 	if (ed == 'e') {
 		for (int i = 0; i < 9; i++) {
-			flag++;
+			flag_e++;
 			P = subBytes(P, 'e');
 			P = ShiftRows(P);
 			P = MixColumns(P, MixC);
-			P = AddRoundKey(P, K);
+			P = AddRoundKey(P, K, 'e');
 		}
 	}
 	else {
 		for (int i = 0; i < 9; i++) {
-			flag--;
+			flag_d--;
 			P = MixColumns(P, MixCni);
-			P = ShiftRows(P);
+			P = invShiftRows(P);
 			P = subBytes(P, 'd');
-			P = AddRoundKey(P, K);
+			P = AddRoundKey(P, K, 'd');
 		}
 	}
 	return P;
 }
 
 vector<vector<string>> finalRounds(vector<vector<string>> P, vector<vector<string>> K, char ed) {   //最终轮变换
-	flag++;
-	P = subBytes(P, 'e');
-	P = ShiftRows(P);
-	P = AddRoundKey(P, K);
+	if (ed == 'e') {
+		flag_e++;
+		P = subBytes(P, 'e');
+		P = ShiftRows(P);
+		P = AddRoundKey(P, K, 'e');
+	}
+	else {
+		flag_d--;
+		P = invShiftRows(P);
+		P = subBytes(P, 'd');
+		P = AddRoundKey(P, K, 'd');
+	}
 	return P;
-}
-
-string decrypt(string c, string k) {
-	vector<vector<string>> C(4, vector<string>(4, "00"));
-	vector<vector<string>> Key(44, vector<string>(4, "00"));
-	string ans = "";
-	for (int i = 0; i < 4; i++) {
-		for (int j = 0; j < 4; j++) {
-			for(int kk = 0; kk < 2; kk++) {
-				C[i][j][kk] = c[(i * 4 + j) * 3 + kk];   //丢弃掉中间的空格，将字符串转换为矩阵
-			}
-		}
-	}
-	for (int i = 0; i < 4; i++) {
-		for (int j = 0; j < 4; j++) {
-			for(int kk = 0; kk < 2; kk++) {
-				Key[i][j][kk] = k[(i * 4 + j) * 3 + kk];   //丢弃掉中间的空格，将字符串转换为矩阵
-			}
-		}
-	}
-	Key = subKey(Key);
-	for (int i = 0; i < 4; i++) {
-		for (int j = 0; j < 4; j++) {
-			C[i][j] = hexXor(C[i][j], Key[i][j]);   //初始变换(Initial round)
-		}
-	}
-	C = transMatrix(C);   // 明文矩阵是竖着读进去的，但是需要横着用
-	C = nineRounds(C, Key, 'd');   //9轮循环运算
-	C = finalRounds(C, Key, 'd');  //最终轮运算
-	C = transMatrix(C);
-	for (int i = 0; i < 4; i++) {
-		for (int j = 0; j < 4; j++) {
-			ans += C[i][j];
-			ans += " ";
-		}
-	}
-	flag = 0;
-	return ans;    // 得到密文
 }
 
 string HextoBin(string Hex) {
@@ -376,8 +401,27 @@ string hexTimes(string a, string b) {
 	else if (a == "03") {
 		return hexXor(hexTimes("02", b), b);
 	}
+	else if (a == "04") {
+		return hexTimes("02", hexTimes("02", b));
+	}
+    else if (a == "08") {
+        return hexTimes("02", hexTimes("04", b));
+    }
+    else if (a == "09") {
+        return hexXor(b, hexTimes("08", b));
+    }
+    else if (a == "0E") {
+        return hexXor(hexTimes("08", b), hexXor(hexTimes("04", b), hexTimes("02", b)));
+    }
+    else if (a == "0D") {
+        return hexXor(hexTimes("09", b), hexTimes("04", b));
+    }
+    else if (a == "0B") {
+        return hexXor(hexTimes("09", b), hexTimes("02", b));
+    }
 	else {
-		cout << "列混合步骤出错，请检查列混合矩阵！" << endl;
+		cout << "列混合步骤出错，用到了不支持的矩阵乘法，请检查列混合矩阵！" << endl;
+		system("pause");
 		return 0;
 	}
 }
@@ -396,6 +440,7 @@ int main()
 {
     string PATH_P, PATH_C, PATH_K = "";
     string p, c, k;
+	cout << "      -----AES-128加/解密工具------        " << endl << endl;
     cout << "请输入你想加密还是解密，加密为e，解密为d：";
     string ed;
     cin >> ed;
@@ -435,7 +480,7 @@ int main()
         c = encrypt(p, k);
         ofstream cFile("test1_encry.txt",ios::out);
         if(!cFile.is_open()) {
-            cout << "创建/打开1_encry.txt失败，请检查文件是否被占用！" << endl;
+            cout << "创建/打开test1_encry.txt失败，请检查文件是否被占用！" << endl;
             system("pause");
             return 0;
         }
@@ -445,15 +490,15 @@ int main()
     }
     else if(ed == "d") {
         c = decrypt(p, k);
-        ofstream cFile("1_decry.txt",ios::out);
+        ofstream cFile("test1_decry.txt",ios::out);
         if(!cFile.is_open()) {
-            cout << "创建/打开1_decry.txt失败，请检查文件是否被占用！" << endl;
+            cout << "创建/打开test1_decry.txt失败，请检查文件是否被占用！" << endl;
             system("pause");
             return 0;
         }
         cFile << c;
         cFile.close();
-        cout << "\n明文已保存至程序目录下的1_decry.txt" << endl;
+        cout << "\n明文已保存至程序目录下的test1_decry.txt" << endl;
     }
     else {
         cout << "参数错误！" << endl;

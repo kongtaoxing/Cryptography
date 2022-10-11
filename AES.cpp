@@ -436,75 +436,71 @@ vector<vector<string>> transMatrix(vector<vector<string>> K) {
 	return TK;
 }
 
-int main()
-{
-    string PATH_P, PATH_C, PATH_K = "";
-    string p, c, k;
-	cout << "      -----AES-128加/解密工具------        " << endl << endl;
+int main() {
+	string PATH;
+    string p, c, k;   //明文、密文、密钥
+	cout << "-------------------AES-128加/解密工具--------------------" << endl << endl;
     cout << "请输入你想加密还是解密，加密为e，解密为d：";
     string ed;
     cin >> ed;
-    cout << "\n请输入需要加解密的文件路径(路径中的单斜杠请输入为双斜杠，以下同)：";
-    cin >> PATH_P;
-    ifstream pFile(PATH_P, ios::in);
-    ifstream kFile;
-    if(!pFile.is_open()){
-        cout << "\n打开明文/密文文件失败！" << endl;
+	cout << "\n请输入文件路径：";
+	cin >> PATH;
+	fstream File(PATH, ios::out|ios::in);   // 以读取和覆盖的方式打开文件
+	if(!File.is_open()){
+        cout << "\n打开或创建文件失败，请检查文件是否被占用！\n" << endl;
         system("pause");
         return 0;
     }
-    getline(pFile, p);   //读入明文/密文字符串
-    pFile.close();  //及时关闭文件，防止内存泄露
+	vector<string> textBox;
+	while(!File.eof()) {
+		string temp;
+		getline(File, temp, '\n');
+		textBox.push_back(temp);
+	}
+	File.seekg(0, ios::beg);  // 回到文件头
+	if (textBox.size() == 2) {   // 文件中只有明文和密钥
+		p = textBox[0];
+		k = textBox[1];
+		textBox.push_back("");
+	}
+	else {                       // 文件中有明文、密钥和密文
+		p = textBox[0];
+		k = textBox[1];
+		c = textBox[2];
+	}
+	k = LowToUpper(k);
 	p = LowToUpper(p);
-    cout << "\n请选择准备输入密钥还是选择密钥文件，输入0选择输入密钥， 输入1选择输入密钥文件：";
-    int miyao;
-    cin >> miyao;
-    if(miyao == 0) {
-        cout << "\n请输入密钥：";
-        cin >> k;
-    }
-    else {
-        cout << "\n请输入密钥文件路径：";
-        cin >> PATH_K;
-        kFile.open(PATH_K, ios::in);
-        if(!kFile.is_open()) {
-            cout << "\n打开密钥文件失败！" << endl;
-            system("pause");
-            return 0;
-        }
-        getline(kFile, k);   //读入密钥字符串
-		k = LowToUpper(k);
-        kFile.close();
-    }
-    if(ed == "e") {
-        c = encrypt(p, k);
-        ofstream cFile("test1_encry.txt",ios::out);
-        if(!cFile.is_open()) {
-            cout << "创建/打开test1_encry.txt失败，请检查文件是否被占用！" << endl;
-            system("pause");
-            return 0;
-        }
-        cFile << c;
-        cFile.close();
-        cout << "\n密文已保存至程序目录下的test1_encry.txt" << endl;
-    }
-    else if(ed == "d") {
-        c = decrypt(p, k);
-        ofstream cFile("test1_decry.txt",ios::out);
-        if(!cFile.is_open()) {
-            cout << "创建/打开test1_decry.txt失败，请检查文件是否被占用！" << endl;
-            system("pause");
-            return 0;
-        }
-        cFile << c;
-        cFile.close();
-        cout << "\n明文已保存至程序目录下的test1_decry.txt" << endl;
-    }
-    else {
-        cout << "参数错误！" << endl;
-        system("pause");
-        return 0;
-    }
-    system("pause");
-    return 0;
+	c = LowToUpper(c);  // 将读入字符全部变为大写，增加健壮性
+	if (ed == "e" || ed == "E") {
+		c = encrypt(p, k);
+		textBox[2] = c;
+		for (int i = 0; i < textBox.size(); i++) {
+			File << textBox[i];
+			if (i != textBox.size() - 1) {
+				File << endl;
+			}
+		}
+		cout << "加密成功，密文已保存至源文件最后一行，请到源文件查看！" << endl;
+		File.close();   // 及时关闭文件，防止内存泄露
+	}
+	else if (ed == "d" || ed == "D") {
+		p = decrypt(c, k);
+		textBox[0] = p;
+		for (int i = 0; i < textBox.size(); i++) {
+			File << textBox[i];
+			if (i != textBox.size() - 1) {
+				File << endl;
+			}
+		}
+		cout << "解密成功，明文已保存至源文件第一行，请到源文件查看！" << endl;
+		File.close();
+	}
+	else {
+		cout << "参数错误！\n" << endl;
+		File.close();  // Close the file
+		system("pause");
+		return 0;
+	}
+	system("pause");
+	return 0;
 }

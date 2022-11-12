@@ -10,19 +10,21 @@ int main(void)
 	unsigned long l1, l2, i;
 	unsigned char pt[17], pt2[17], out[1024], out2[1024], out3[1024];
 	rsa_key key;
-	printf("RSA加解密算法加密机制\n");
+	printf("**********************RSA加解密***********************\n");
 
 	while (true) {
 		printf("\n请输入文本串 s (16字节):\n");
 		scanf("%s", &pt);
-		printf("请选择加密机制:\n");
-		printf("\t1.RSAES-PKCS1-V1_5\n");
-		printf("\t2.RSAES_OAEP\n");
+		printf("请选择加密机制:\t1.RSAES-PKCS1-V1_5\t2.RSAES_OAEP\n");
 		scanf("%d", &inpadding);
 		if (inpadding == 1)
-			padding = LTC_LTC_PKCS_1_V1_5;
-		else
-			padding = LTC_LTC_PKCS_1_OAEP;
+			padding = LTC_PKCS_1_V1_5;
+		else if(inpadding == 2)
+			padding = LTC_PKCS_1_OAEP;
+		else {
+			printf("输入了不支持的命令，请检查后重新输入！");
+			return 0;
+		}
 		/* register prng/hash */
 		if (register_prng(&sprng_desc) == -1) {
 			printf("Error registering sprng");
